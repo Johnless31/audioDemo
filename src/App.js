@@ -113,11 +113,19 @@ const App = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 44100,
-          channelCount: 1,
+          // 提高采样率到48kHz，更适合现代音频处理
+          sampleRate: 48000,
+          // 使用立体声录制
+          channelCount: 2,
+          // 提高音频位深度
+          sampleSize: 24,
+          // 保持音频处理功能
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          // 添加额外的质量参数
+          latency: 0.01, // 低延迟
+          volume: 1.0    // 最大音量
         } 
       });
       
@@ -141,8 +149,12 @@ const App = () => {
         throw new Error('浏览器不支持任何音频格式');
       }
       
+      // 优化MediaRecorder配置
       const options = { 
-        mimeType: selectedMimeType 
+        mimeType: selectedMimeType,
+        // 设置高比特率以提高音质
+        audioBitsPerSecond: 256000, // 256 kbps，高质量音频
+        videoBitsPerSecond: 0 // 只录制音频
       };
       
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -196,13 +208,30 @@ const App = () => {
   const startRecordingSpeaker = async () => {
     try {
       // 使用 getDisplayMedia 捕获屏幕音频
-      
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        audio: true,
+        audio: {
+          // 设置高质量音频参数
+          sampleRate: 48000,
+          channelCount: 2,
+          sampleSize: 24,
+          latency: 0.01,
+          volume: 1.0,
+          // 禁用自动处理以保持原始音质
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
         video: true
       });
-      // 创建音频上下文来处理音频流
-      audioContextRef.current = new AudioContext();
+      
+      // 创建音频上下文来处理音频流，设置高质量
+      audioContextRef.current = new AudioContext({
+        sampleRate: 48000,
+        latencyHint: 'interactive',
+        // 使用最佳音频质量
+        sinkId: 'default'
+      });
+      
       sourceRef.current = audioContextRef.current.createMediaStreamSource(displayStream);
       destinationRef.current = audioContextRef.current.createMediaStreamDestination();
       
@@ -211,7 +240,9 @@ const App = () => {
       
       // 创建 MediaRecorder 来录制目标流
       const options = { 
-        mimeType: 'audio/webm;codecs=opus' 
+        mimeType: 'audio/webm;codecs=opus',
+        // 设置高比特率以提高音质
+        audioBitsPerSecond: 256000 // 256 kbps，高质量音频
       };
       
       const mediaRecorder = new MediaRecorder(destinationRef.current.stream, options);
